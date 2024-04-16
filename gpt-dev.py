@@ -49,6 +49,23 @@ import torch
 # and then wrap it in torch.tensor
 # to get the data tensor
 data = torch.tensor(encode(text))
-print(data.shape, data.dtype)
-print(data[:1000])
+# print(data.shape, data.dtype)
+# print(data[:1000])
 # this is the first 1000 characters from above in the character level tokens
+
+# separate data into train and validation
+n = int(0.9*len(data))
+train_data = data[:n]
+
+# train transformer on chunks of data (blocks) at a time instead of all at once
+# makes it computationally tractable
+block_size = 8 # context length
+print(train_data[:block_size+1])
+
+x = train_data[:block_size]
+y = train_data[1:block_size+1]
+
+for t in range(block_size):
+    context = x[:t+1]
+    target = y[t]
+    print(f"when input is {context} the target: {target}")
