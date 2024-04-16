@@ -120,20 +120,44 @@ class BigramLanguageModel(nn.Module):
         # logits -> scores for next character in the sequence
         self.token_embedding_table = nn.Embedding(vocab_size, vocab_size)
     
-    def forward(self, idx, targets):
+    def forward(self, idx, targets=None):
         
         # idx and targets are both (B, T) tensor of integers
         logits = self.token_embedding_table(idx) # (B,T,C)
         
-        B, T, C = logits.shape
-        # stretch out all the batches and make channel second dim
-        logits = logits.view(B*T, C)
-        targets = targets.view(B*T)
-        # how well are we predicting the targets when comapred to logits, predictions
-        loss = F.cross_entropy(logits, targets)
+        if targets is None:
+            loss = None
+        else:
+            B, T, C = logits.shape
+            # stretch out all the batches and make channel second dim
+            logits = logits.view(B*T, C)
+            targets = targets.view(B*T)
+            # how well are we predicting the targets when comapred to logits, predictions
+            loss = F.cross_entropy(logits, targets)
         return logits, loss
+    
+    def generate(self, idx, max_new_tokens):
+        # idx is (B, T) array of indices in the current context
+        for _ in range(max_new_tokens):
+            # get the predcitions
+            logits, loss = self(idx)
+            logits = logits[:, -1, :]
+            # apply softmax to get probabilities
+            probs = F.softmax(logits, dim=-1) # (B, C)
+            # sample from the distribution
+            idx_next = torch.multinomial(probs, num_samples=1) # (B, 1)
+            # append sampled index to the running sequence
+            idx = torch.cat((idx, idx_next), dim=1) # (B, T+1)
+        return idx
 
 m = BigramLanguageModel(vocab_size)
 logits, loss = m(xb, yb)
 print(logits.shape)
 print(loss)
+
+# batch is just one, time is just one, holds a zeroes
+# 0 -> newline character is the first in the sequence
+idx = torch.zeros((1, 1), dtype=torch.long)
+# [0] unplucks batch
+generated_tokens = m.generate(idx, max_new_tokens=100)[0].tolist()
+print(decode(generated_tokens))
