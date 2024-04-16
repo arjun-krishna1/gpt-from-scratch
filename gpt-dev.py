@@ -56,6 +56,7 @@ data = torch.tensor(encode(text))
 # separate data into train and validation
 n = int(0.9*len(data))
 train_data = data[:n]
+val_data = data[n:]
 
 # train transformer on chunks of data (blocks) at a time instead of all at once
 # makes it computationally tractable
@@ -69,3 +70,39 @@ for t in range(block_size):
     context = x[:t+1]
     target = y[t]
     print(f"when input is {context} the target: {target}")
+
+torch.manual_seed(1337)
+batch_size = 4 # how many independent sequences we process in a single pass in parallel
+block_size = 8 # maximum context length for predictions?
+
+def get_batch(split):
+    data = train_data if split =="train" else val_data
+    # start at random places in training set, generate one start location for each batch
+    ix = torch.randint(len(data) - block_size, (batch_size,))
+    # first block size characters starting at i
+    # chunks for every one of i in ix, gget all the batches
+    x = torch.stack([data[i:i+block_size] for i in ix])
+    # are the offset by one of that
+    y = torch.stack([data[i+1:i+block_size+1] for i in ix])
+    # use torch.stack to stack them up into rows
+    # they all become rows in a 4 by 8 tensor
+    # 4 blocks in each batch of training set
+    # each block has 8 character long text chunks
+    return x, y
+
+xb, yb = get_batch('train')
+print('inputs:')
+print(xb.shape)
+print(xb)
+
+print('targets:')
+print(yb.shape)
+print(yb)
+
+print('----')
+
+for b in range(batch_size):
+    for t in range(block_size):
+        context = xb[b, :t+1]
+        target = yb[b, t]
+        print(f"when input is {context.tolist()} the target: {target}")
